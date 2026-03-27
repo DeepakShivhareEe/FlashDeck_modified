@@ -1,0 +1,16 @@
+﻿[
+  {
+    "format": "pdf",
+    "status": 200,
+    "content_type": "application/pdf",
+    "len": 1569,
+    "body": ""
+  },
+  {
+    "format": "anki",
+    "status": 400,
+    "content_type": "application/json",
+    "len": 54,
+    "body": "{\"detail\":\"Unsupported export format. Use csv or pdf\"}"
+  }
+]

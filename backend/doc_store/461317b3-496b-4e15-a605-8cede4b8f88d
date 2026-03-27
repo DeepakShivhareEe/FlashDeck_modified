@@ -1,0 +1,1 @@
+{"lc": 1, "type": "constructor", "id": ["langchain", "schema", "document", "Document"], "kwargs": {"metadata": {"deck_id": "14013e69-c8f5-4e04-92d7-5811f130d5a9", "source": "Uploaded Document", "page_number": 1}, "page_content": "FlashDeck test content.\nCapital of France is Paris.\nHTTP 200 means success.", "type": "Document"}}

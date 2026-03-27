@@ -1,9 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
+    --saas-primary-1: #7a5cff;
+    --saas-primary-2: #2d88ff;
+    --saas-primary-3: #2ae7c9;
+    --saas-bg-deep: #070a14;
+    --saas-bg-panel: #0d1222;
+    --saas-text-main: #f4f7ff;
+    --saas-text-soft: #aab5d6;
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
@@ -56,5 +65,78 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: "Manrope", sans-serif;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+  }
+}
+
+@keyframes floatBlob {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -12px, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+@layer utilities {
+  .saas-grid {
+    background-image:
+      linear-gradient(to right, rgba(160, 178, 224, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(160, 178, 224, 0.05) 1px, transparent 1px);
+    background-size: 32px 32px;
+    mask-image: radial-gradient(circle at center, black 30%, transparent 85%);
+  }
+
+  .saas-gradient-text {
+    background-image: linear-gradient(90deg, var(--saas-primary-1), var(--saas-primary-2), var(--saas-primary-3));
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+
+  .shimmer-text {
+    background-size: 200% 100%;
+    animation: shimmer 4s linear infinite;
+  }
+
+  .float-blob {
+    animation: floatBlob 8s ease-in-out infinite;
+  }
+
+  .float-blob-delayed {
+    animation: floatBlob 10s ease-in-out infinite;
+    animation-delay: 1.4s;
+  }
+
+  .float-blob-slow {
+    animation: floatBlob 12s ease-in-out infinite;
+    animation-delay: 0.9s;
+  }
+
+  .reveal-on-scroll {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 420ms ease, transform 420ms ease;
+  }
+
+  .reveal-on-scroll.is-visible {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

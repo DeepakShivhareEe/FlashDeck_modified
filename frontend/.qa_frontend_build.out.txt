@@ -1,0 +1,26 @@
+﻿
+> frontend@0.0.0 build
+> vite build
+
+[36mvite v7.2.4 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32mΓ£ô[39m 6048 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                          [39m[1m[2m    0.64 kB[22m[1m[22m[2m Γöé gzip:   0.35 kB[22m
+[2mdist/[22m[35massets/index-D5gNon6m.css           [39m[1m[2m   39.06 kB[22m[1m[22m[2m Γöé gzip:   7.49 kB[22m
+[2mdist/[22m[36massets/ProfilePage-OL6j4Nt4.js      [39m[1m[2m    1.57 kB[22m[1m[22m[2m Γöé gzip:   0.61 kB[22m
+[2mdist/[22m[36massets/AuthPage-tqR7Lz88.js         [39m[1m[2m    2.37 kB[22m[1m[22m[2m Γöé gzip:   1.10 kB[22m
+[2mdist/[22m[36massets/LeaderboardPage-CjNQqVb-.js  [39m[1m[2m    2.61 kB[22m[1m[22m[2m Γöé gzip:   0.98 kB[22m
+[2mdist/[22m[36massets/ReviewPage-DpgP6UuL.js       [39m[1m[2m    2.70 kB[22m[1m[22m[2m Γöé gzip:   1.21 kB[22m
+[2mdist/[22m[36massets/index-CM3_ir7j.js            [39m[1m[2m    4.95 kB[22m[1m[22m[2m Γöé gzip:   1.98 kB[22m
+[2mdist/[22m[36massets/LandingPage-DiQq-tdz.js      [39m[1m[2m    5.76 kB[22m[1m[22m[2m Γöé gzip:   2.13 kB[22m
+[2mdist/[22m[36massets/Dashboard-yT25Mem8.js        [39m[1m[2m    8.41 kB[22m[1m[22m[2m Γöé gzip:   2.63 kB[22m
+[2mdist/[22m[36massets/KnowledgeBase-GarurMlZ.js    [39m[1m[2m    8.87 kB[22m[1m[22m[2m Γöé gzip:   3.02 kB[22m
+[2mdist/[22m[36massets/index.es-BhVhmt3_.js         [39m[1m[2m  158.69 kB[22m[1m[22m[2m Γöé gzip:  52.98 kB[22m
+[2mdist/[22m[36massets/html2canvas.esm-Ge7aVWlp.js  [39m[1m[2m  201.40 kB[22m[1m[22m[2m Γöé gzip:  47.48 kB[22m
+[2mdist/[22m[36massets/react-vendor-DHyUjVWh.js     [39m[1m[2m  264.26 kB[22m[1m[22m[2m Γöé gzip:  84.08 kB[22m
+[2mdist/[22m[36massets/AnalyticsPage-gjgqheF7.js    [39m[1m[2m  305.26 kB[22m[1m[22m[2m Γöé gzip:  80.50 kB[22m
+[2mdist/[22m[36massets/MyDecks-BM91WCAn.js          [39m[1m[2m  400.32 kB[22m[1m[22m[2m Γöé gzip: 130.47 kB[22m
+[2mdist/[22m[36massets/diagram-vendor-Cbn_mNNS.js   [39m[1m[33m2,658.73 kB[39m[22m[2m Γöé gzip: 759.06 kB[22m
+[32mΓ£ô built in 10.90s[39m

@@ -19,7 +19,7 @@ The intelligent core of FlashDeck, powered by LangChain, OpenAI, and ChromaDB.
 *   **Framework**: FastAPI
 *   **AI Orchestration**: LangChain, LangGraph
 *   **Vector DB**: ChromaDB
-*   **LLM**: OpenRouter (Google Gemini 3 Flash Preview)
+*   **LLM**: Groq (OpenAI-compatible endpoint)
 *   **PDF Processing**: PyMuPDF (Fitz)
 
 ## 🏃‍♂️ Setup & Run
@@ -27,7 +27,7 @@ The intelligent core of FlashDeck, powered by LangChain, OpenAI, and ChromaDB.
 1.  **Environment**:
     Create a `.env` file in this directory:
     ```env
-    OPENROUTER_API_KEY=sk-or-...
+    GROQ_API_KEY=gsk-...
     ```
 
 3.  **Setup Virtual Environment**:

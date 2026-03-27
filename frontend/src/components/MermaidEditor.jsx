@@ -1,7 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import mermaid from 'mermaid'
-import { Edit2, Eye, Download, Save, RefreshCw } from 'lucide-react'
+import { Edit2, Save } from 'lucide-react'
 import html2canvas from 'html2canvas'
+
+function injectSafeSvg(container, svgMarkup) {
+    const parser = new DOMParser()
+    const svgDoc = parser.parseFromString(svgMarkup, 'image/svg+xml')
+    const svgElement = svgDoc.documentElement
+
+    if (!svgElement || svgElement.nodeName.toLowerCase() === 'parsererror') {
+        throw new Error('Unable to render SVG output')
+    }
+
+    svgElement.querySelectorAll('script, foreignObject').forEach((node) => node.remove())
+    container.replaceChildren(svgElement)
+}
 
 export default function MermaidEditor({ code, onSave, readOnly = false }) {
     const [isEditing, setIsEditing] = useState(false)
@@ -13,22 +26,16 @@ export default function MermaidEditor({ code, onSave, readOnly = false }) {
         setCurrentCode(code)
     }, [code])
 
-    useEffect(() => {
-        if (!isEditing) {
-            renderDiagram()
-        }
-    }, [currentCode, isEditing])
-
-    const renderDiagram = async () => {
+    const renderDiagram = useCallback(async () => {
         if (!graphRef.current) return;
         try {
             mermaid.initialize({
                 startOnLoad: false,
                 theme: 'dark',
-                securityLevel: 'loose',
+                securityLevel: 'strict',
             })
             const { svg } = await mermaid.render('mermaid-svg-' + Math.random().toString(36).substr(2, 9), currentCode)
-            graphRef.current.innerHTML = svg
+            injectSafeSvg(graphRef.current, svg)
             setError(null)
         } catch (e) {
             console.error("Mermaid Error:", e)
@@ -36,7 +43,13 @@ export default function MermaidEditor({ code, onSave, readOnly = false }) {
             // Make sure the error doesn't break the UI permanently
             // Mermaid often leaves the DOM in a bad state on error
         }
-    }
+    }, [currentCode])
+
+    useEffect(() => {
+        if (!isEditing) {
+            renderDiagram()
+        }
+    }, [currentCode, isEditing, renderDiagram])
 
     const handleDownload = async (format) => {
         if (!graphRef.current) return;

@@ -3,7 +3,6 @@ import operator
 from typing import List, TypedDict, Annotated, Dict, Any, Union, Optional
 from typing_extensions import TypedDict as ExtTypedDict
 
-from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -11,6 +10,7 @@ from langgraph.graph import StateGraph, END, START
 from langgraph.types import Send
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv, find_dotenv
+from llm_client import create_llm, invoke_with_retry
 
 # --- SETUP ---
 # Load env
@@ -20,20 +20,8 @@ load_dotenv(env_path)
 # Import RAG Engine
 import rag_engine
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-if not OPENROUTER_API_KEY:
-    raise ValueError("OPENROUTER_API_KEY not found in .env")
-
-# Model Config
-llm = ChatOpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=OPENROUTER_API_KEY,
-    model="google/gemini-3-flash-preview",
-    default_headers={
-        "HTTP-Referer": "http://localhost:8501",
-        "X-Title": "FlashDeckAgent"
-    }
-)
+# Shared LLM client: Groq via OpenAI-compatible endpoint.
+llm = create_llm()
 
 # --- SCHEMAS ---
 
@@ -96,26 +84,6 @@ def chunk_document(state: DeckState):
 
     print(f"Created {len(batches)} batches/jobs.")
     
-    # --- RAG INDEXING ---
-    if rag_engine and isinstance(content, str):
-        # We index the chunks we created for text
-        # If content is string (Text Mode)
-        # We'll use the chunks logic
-        if 'batches' not in locals(): # redundancy check
-             pass
-        # Flatten batches to chunks 
-        # (Since we normalized batch to list of list, we just iterate)
-        
-        # NOTE: For RAG, we might want smaller chunks than batch size (4000). 
-        # But for now, let's index the 4000-char chunks as they are semantic enough.
-        
-        raw_chunks = [b[0] for b in batches if len(b) > 0 and isinstance(b[0], str)]
-        deck_id = state.get("deck_id", "default")
-        
-        # We assume source is unknown or passed in metadata? 
-        # For now simple index
-        rag_engine.index_content(raw_chunks, deck_id=deck_id, source_file="user_upload")
-        
     return {"batches": batches}
 
 def generate_batch_node(state: BatchInput):
@@ -146,7 +114,7 @@ def generate_batch_node(state: BatchInput):
                 })
                 
             msg = {"role": "user", "content": content_parts}
-            res = llm.invoke([msg])
+            res = invoke_with_retry(llm.invoke, [msg])
             
         else:
             # Text Batch (usually 1 large chunk)
@@ -161,7 +129,7 @@ def generate_batch_node(state: BatchInput):
              ])
             chain = prompt | llm | parser
             # We bypass chain invoke to handle manual parsing if needed, but chain is cleaner for text
-            res = chain.invoke({"text": text_blob})
+            res = invoke_with_retry(chain.invoke, {"text": text_blob})
             # chain returns parsed dict usually
             if isinstance(res, dict):
                 return {
@@ -174,21 +142,23 @@ def generate_batch_node(state: BatchInput):
             return {"partial_cards": [], "flowcharts": [], "transcriptions": []} # Fallback
 
         if is_image:
-             # Manual Parse for Vision
-             try:
+            # Manual Parse for Vision
+            flowchart = None
+            transcription = ""
+            try:
                 parsed = parser.parse(res.content)
-             except:
+            except Exception:
                 # Fallback if raw text
-                parsed = {} 
+                parsed = {}
 
-             if isinstance(parsed, dict):
-                 generated = parsed.get('cards', [])
-                 flowchart = parsed.get('flowchart')
-                 transcription = parsed.get('transcription', "")
-             elif isinstance(parsed, list):
-                 generated = parsed
-                 flowchart = None
-                 transcription = ""
+            if isinstance(parsed, dict):
+                generated = parsed.get('cards', [])
+                flowchart = parsed.get('flowchart')
+                transcription = parsed.get('transcription', "")
+            elif isinstance(parsed, list):
+                generated = parsed
+                flowchart = None
+                transcription = ""
          
         # Add flowchart to output if present
         return {
@@ -207,8 +177,12 @@ def refine_deck(state: DeckState):
     
     unique_map = {}
     for c in raw_cards:
+        if c is None:
+            continue
         if hasattr(c, 'model_dump'): c = c.model_dump()
         elif hasattr(c, 'dict'): c = c.dict()
+        elif not isinstance(c, dict):
+            continue
         
         q = c.get('q') or c.get('Q') or c.get('question') or c.get('front')
         a = c.get('a') or c.get('A') or c.get('answer') or c.get('back')
@@ -224,7 +198,7 @@ def refine_deck(state: DeckState):
     valid_charts = [f for f in flowcharts if f and isinstance(f, str) and "graph" in f]
     
     # Dedup flowcharts?
-    valid_charts = list(set(valid_charts))
+    valid_charts = list(dict.fromkeys(valid_charts))
     
     # --- RAG INDEXING ---
     # We do this here to ensure we only index after successful generation

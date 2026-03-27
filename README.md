@@ -74,7 +74,7 @@ graph TD
 | **AI Agents** | LangChain, LangGraph | Agentic Workflow Design |
 | **Vector DB** | ChromaDB | Semantic Search (Child Documents) |
 | **Storage** | LocalFileStore (Pickle) | Component Storage (Parent Documents) |
-| **LLM** | Google Gemini 3 Flash | Via OpenRouter (Fast Reasoning) |
+| **LLM** | Groq-hosted Llama models | OpenAI-compatible API (low latency) |
 | **Frontend** | React, Vite | Reactive UI |
 | **Styling** | Tailwind CSS, Lucide | Modern, Dark-Mode Design |
 | **Diagrams** | Mermaid.js | Code-to-Diagram Rendering |
@@ -86,7 +86,7 @@ graph TD
 ### Prerequisites
 *   **Node.js** (v18 or higher)
 *   **Python** (v3.10 or higher)
-*   **OpenRouter API Key** (with access to Gemini or GPT-4o models)
+*   **Groq API Key**
 
 ### 1. Backend Setup
 
@@ -110,7 +110,7 @@ pip install -r requirements.txt
 
 # 5. Configure Environment
 # Create a .env file and add your key:
-echo "OPENROUTER_API_KEY=sk-or-your-key-here" > .env
+echo "GROQ_API_KEY=gsk-your-key-here" > .env
 
 # 6. Run Server
 uvicorn main:app --port 8001 --reload

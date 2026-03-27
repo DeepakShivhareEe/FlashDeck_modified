@@ -1,0 +1,8 @@
+﻿.......                                                                  [100%]
+============================== warnings summary ===============================
+..\..\.venv\Lib\site-packages\langchain_core\_api\deprecation.py:25
+  C:\Users\dk231\Desktop\FlashDeck\.venv\Lib\site-packages\langchain_core\_api\deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+    from pydantic.v1.fields import FieldInfo as FieldInfoV1
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+7 passed, 1 warning in 1.01s

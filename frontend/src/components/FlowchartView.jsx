@@ -1,10 +1,23 @@
 import React, { useEffect, useRef } from 'react'
 import mermaid from 'mermaid'
 
+function injectSafeSvg(container, svgMarkup) {
+    const parser = new DOMParser()
+    const svgDoc = parser.parseFromString(svgMarkup, 'image/svg+xml')
+    const svgElement = svgDoc.documentElement
+
+    if (!svgElement || svgElement.nodeName.toLowerCase() === 'parsererror') {
+        throw new Error('Invalid Mermaid SVG output')
+    }
+
+    svgElement.querySelectorAll('script, foreignObject').forEach((node) => node.remove())
+    container.replaceChildren(svgElement)
+}
+
 mermaid.initialize({
     startOnLoad: false,
     theme: 'dark',
-    securityLevel: 'loose',
+    securityLevel: 'strict',
 })
 
 const FlowchartView = ({ chartCode }) => {
@@ -18,7 +31,7 @@ const FlowchartView = ({ chartCode }) => {
             try {
                 mermaid.render(id, chartCode).then((result) => {
                     if (containerRef.current) {
-                        containerRef.current.innerHTML = result.svg
+                        injectSafeSvg(containerRef.current, result.svg)
                     }
                 })
             } catch (err) {

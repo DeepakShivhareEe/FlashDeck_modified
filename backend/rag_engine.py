@@ -1,13 +1,14 @@
 import os
-import shutil
+import logging
+import hashlib
+import math
 import pickle
-from typing import List, Optional
-from uuid import uuid4
+from typing import Iterator, List, Optional, Sequence, Tuple
 
 # LangChain Imports
 from langchain_chroma import Chroma
-from langchain_openai import OpenAIEmbeddings
 from langchain_core.documents import Document
+from langchain_core.stores import BaseStore
 from langchain_classic.retrievers import ParentDocumentRetriever
 # from langchain.retrievers import ParentDocumentRetriever # Fallback failed
 from langchain_classic.storage import LocalFileStore
@@ -19,6 +20,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CHROMA_DIR = os.path.join(BASE_DIR, "chroma_db")
 DOC_STORE_DIR = os.path.join(BASE_DIR, "doc_store") # For Parent Docs
+COLLECTION_NAME = os.getenv("RAG_COLLECTION_NAME", "flashdeck_knowledge_child_local")
 
 # Ensure directories exist
 os.makedirs(DOC_STORE_DIR, exist_ok=True)
@@ -27,26 +29,83 @@ os.makedirs(DOC_STORE_DIR, exist_ok=True)
 from dotenv import load_dotenv
 load_dotenv()
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+logger = logging.getLogger(__name__)
+
+
+class DocumentFileStoreAdapter(BaseStore[str, Document]):
+    """Store LangChain Documents as bytes in LocalFileStore."""
+
+    def __init__(self, store: LocalFileStore):
+        self._store = store
+
+    def mget(self, keys: Sequence[str]) -> List[Optional[Document]]:
+        raw_values = self._store.mget(list(keys))
+        values: List[Optional[Document]] = []
+        for raw in raw_values:
+            if raw is None:
+                values.append(None)
+                continue
+            values.append(pickle.loads(raw))
+        return values
+
+    def mset(self, key_value_pairs: Sequence[Tuple[str, Document]]) -> None:
+        serialized: List[Tuple[str, bytes]] = []
+        for key, value in key_value_pairs:
+            serialized.append((key, pickle.dumps(value)))
+        self._store.mset(serialized)
+
+    def mdelete(self, keys: Sequence[str]) -> None:
+        self._store.mdelete(list(keys))
+
+    def yield_keys(self, *, prefix: Optional[str] = None) -> Iterator[str]:
+        return self._store.yield_keys(prefix=prefix)
+
+
+class LocalHashEmbeddings:
+    """Deterministic local embeddings without external model/API dependencies."""
+
+    def __init__(self, dimensions: int = 512):
+        self.dimensions = dimensions
+
+    def _tokenize(self, text: str) -> List[str]:
+        return [tok for tok in (text or "").lower().split() if tok]
+
+    def _embed(self, text: str) -> List[float]:
+        vector = [0.0] * self.dimensions
+        tokens = self._tokenize(text)
+        if not tokens:
+            return vector
+
+        for token in tokens:
+            digest = hashlib.sha256(token.encode("utf-8")).digest()
+            index = int.from_bytes(digest[:4], "big") % self.dimensions
+            sign = 1.0 if (digest[4] % 2 == 0) else -1.0
+            vector[index] += sign
+
+        norm = math.sqrt(sum(value * value for value in vector))
+        if norm == 0:
+            return vector
+        return [value / norm for value in vector]
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        return [self._embed(text) for text in texts]
+
+    def embed_query(self, text: str) -> List[float]:
+        return self._embed(text)
 
 def get_embeddings():
     """
-    Returns the embedding function. 
-    Using OpenRouter compatible endpoint (text-embedding-3-small).
+    Returns the embedding function.
+    Uses deterministic local hash embeddings to avoid external API dependencies.
     """
-    return OpenAIEmbeddings(
-        model="text-embedding-3-small",
-        openai_api_base="https://openrouter.ai/api/v1",
-        openai_api_key=OPENROUTER_API_KEY,
-        check_embedding_ctx_length=False 
-    )
+    return LocalHashEmbeddings(dimensions=512)
 
 def get_vectorstore():
     """
     Returns the persistent Chroma VectorStore (Child Docs).
     """
     return Chroma(
-        collection_name="flashdeck_knowledge_child", # New collection for v4 logic
+        collection_name=COLLECTION_NAME,
         embedding_function=get_embeddings(),
         persist_directory=CHROMA_DIR
     )
@@ -55,7 +114,7 @@ def get_docstore():
     """
     Returns the LocalFileStore for Parent Docs (blob storage).
     """
-    return LocalFileStore(DOC_STORE_DIR)
+    return DocumentFileStoreAdapter(LocalFileStore(DOC_STORE_DIR))
 
 def get_retriever():
     """
@@ -90,7 +149,7 @@ def index_content(text_chunks: List[str], deck_id: str, source_file: str):
     if not text_chunks:
         return
         
-    print(f"--- RAG (Advanced): Indexing {len(text_chunks)} Parent Chunks for Deck {deck_id} ---")
+    logger.info("Indexing %s parent chunk(s) for deck %s", len(text_chunks), deck_id)
     
     # Convert strings to Documents
     documents = []
@@ -113,7 +172,7 @@ def index_content(text_chunks: List[str], deck_id: str, source_file: str):
     retriever = get_retriever()
     retriever.add_documents(documents)
     
-    print("--- RAG: Indexing Complete ---")
+    logger.info("RAG indexing complete")
 
 def query_vector_db(query: str, deck_id: Optional[str] = None, k: int = 4):
     """
@@ -123,15 +182,14 @@ def query_vector_db(query: str, deck_id: Optional[str] = None, k: int = 4):
     
     # Note: ParentDocumentRetriever search_kwargs are for the underlying vectorstore search
     # We want to filter by deck_id.
+    search_kwargs = {"k": k}
     if deck_id:
-        retriever.search_kwargs = {
-            "filter": {"deck_id": deck_id},
-            "k": k
-        }
-    else:
-        retriever.search_kwargs = {"k": k}
+        search_kwargs["filter"] = {"deck_id": deck_id}
 
-    print(f"🔍 RAG Query: '{query}' (Deck: {deck_id})")
+    if hasattr(retriever, "search_kwargs"):
+        retriever.search_kwargs = search_kwargs
+
+    logger.info("RAG query received for deck %s", deck_id)
     results = retriever.invoke(query)
     
     # Results are the PARENT documents (large context).
@@ -144,9 +202,10 @@ def check_health():
     try:
         vs = get_vectorstore()
         count = vs._collection.count()
+        logger.debug("RAG vectorstore count: %s", count)
         return True
     except Exception as e:
-        print(f"RAG Health Check Failed: {e}")
+        logger.exception("RAG health check failed")
         return False
 
 def clear_deck_data(deck_id: str):

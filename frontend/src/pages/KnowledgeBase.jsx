@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, FileText, Share2, ZoomIn, ZoomOut, MessageSquare, Send, Bot, User as UserIcon, Home } from 'lucide-react'
+import { ArrowLeft, FileText, Share2, ZoomIn, ZoomOut, Send, Bot, User as UserIcon, Home } from 'lucide-react'
 import MermaidEditor from '../components/MermaidEditor'
+import { requestJson } from '../lib/api'
 
 // We'll rebuild a dedicated Chat pane here for better integration than the Sidebar component
 function ChatPane({ deckId }) {
@@ -20,15 +21,14 @@ function ChatPane({ deckId }) {
         setLoading(true);
 
         try {
-            const response = await fetch('http://127.0.0.1:8001/chat', {
+            const data = await requestJson('/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: userMsg.content, deck_id: deckId })
-            });
-            const data = await response.json();
+            }, 1, 45000)
             setMessages(prev => [...prev, { role: 'assistant', content: data.answer }]);
         } catch (e) {
-            setMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I encountered an error." }]);
+            setMessages(prev => [...prev, { role: 'assistant', content: `Sorry, I encountered an error: ${e?.message || 'Request failed'}.` }]);
         } finally {
             setLoading(false);
         }
@@ -79,16 +79,8 @@ function ChatPane({ deckId }) {
 
 export default function KnowledgeBase({ files, flowcharts, deckId }) {
     const [scale, setScale] = useState(1)
-    const [displayedFlowchart, setDisplayedFlowchart] = useState(null)
-
-    // Sync props to local state when deck changes
-    useState(() => {
-        if (flowcharts && flowcharts.length > 0) {
-            setDisplayedFlowchart(flowcharts[0])
-        } else {
-            setDisplayedFlowchart(null)
-        }
-    }, [flowcharts])
+    const [customFlowchart, setCustomFlowchart] = useState(null)
+    const displayedFlowchart = customFlowchart ?? (flowcharts && flowcharts.length > 0 ? flowcharts[0] : null)
 
     return (
         <div className="h-screen bg-[#191919] text-gray-200 font-sans flex flex-col overflow-hidden">
@@ -151,7 +143,7 @@ export default function KnowledgeBase({ files, flowcharts, deckId }) {
                                         readOnly={false}
                                         onSave={(newCode) => {
                                             console.log("Saving Flowchart Update:", newCode)
-                                            setDisplayedFlowchart(newCode)
+                                            setCustomFlowchart(newCode)
                                         }}
                                     />
                                 </div>

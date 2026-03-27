@@ -1,0 +1,17 @@
+﻿[
+  {
+    "name": "health",
+    "status": 200,
+    "latency_ms": 4273.33
+  },
+  {
+    "name": "leaderboard",
+    "status": 200,
+    "latency_ms": 23.33
+  },
+  {
+    "name": "generate-quiz-medium",
+    "status": 200,
+    "latency_ms": 1422.21
+  }
+]

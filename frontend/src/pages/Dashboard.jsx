@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Upload, FileText, Zap, BookOpen, Brain, ArrowRight, Home } from 'lucide-react'
+import { requestJson } from '../lib/api'
 
-export default function Dashboard({ files, setFiles, setCards, setFlowcharts, setDeckName, setDeckId, deckId }) {
+export default function Dashboard({ files, setFiles, setCards, setQuiz, setFlowcharts, setDeckName, setDeckId, deckId, authUser }) {
     const [loading, setLoading] = useState(false)
     const [uploadProgress, setUploadProgress] = useState(0)
     const [showGuide, setShowGuide] = useState(false)
@@ -30,6 +31,7 @@ export default function Dashboard({ files, setFiles, setCards, setFlowcharts, se
         if (files.length === 0) return;
         setLoading(true);
         setCards([]);
+        setQuiz([]);
         setFlowcharts([]);
         setShowGuide(false);
 
@@ -39,21 +41,19 @@ export default function Dashboard({ files, setFiles, setCards, setFlowcharts, se
         });
 
         try {
-            const response = await fetch('http://127.0.0.1:8001/generate', {
+            const data = await requestJson('/generate', {
                 method: 'POST',
                 body: formData,
-            });
+            }, 1, 180000)
 
-            if (!response.ok) throw new Error("Generation failed");
-
-            const data = await response.json();
             setCards(data.cards);
+            setQuiz(data.quiz || []);
             setFlowcharts(data.flowcharts || []);
             setDeckName(data.deck_name);
             setDeckId(data.deck_id);
 
         } catch (error) {
-            alert("Error: " + error);
+            alert("Error: " + (error?.message || 'Generation failed'));
         } finally {
             setLoading(false);
         }
@@ -75,6 +75,18 @@ export default function Dashboard({ files, setFiles, setCards, setFlowcharts, se
                     <Link to="/" className="absolute left-0 top-0 p-3 bg-white/5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Exit to Home">
                         <Home size={20} />
                     </Link>
+                    <div className="absolute right-0 top-0 flex items-center gap-2">
+                        <Link to="/leaderboard" className="px-3 py-2 text-xs rounded-lg bg-white/5 border border-white/10 hover:bg-white/10">Leaderboard</Link>
+                        {authUser ? (
+                            <>
+                                <Link to="/analytics" className="px-3 py-2 text-xs rounded-lg bg-white/5 border border-white/10 hover:bg-white/10">Analytics</Link>
+                                <Link to="/review" className="px-3 py-2 text-xs rounded-lg bg-white/5 border border-white/10 hover:bg-white/10">Daily Review</Link>
+                                <Link to="/profile" className="px-3 py-2 text-xs rounded-lg bg-cyan-500/20 border border-cyan-400/40 hover:bg-cyan-500/30">Profile</Link>
+                            </>
+                        ) : (
+                            <Link to="/auth" className="px-3 py-2 text-xs rounded-lg bg-cyan-500/20 border border-cyan-400/40 hover:bg-cyan-500/30">Login</Link>
+                        )}
+                    </div>
 
                     <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-full mb-6">
                         <Zap size={16} className="text-orange-400" fill="currentColor" />
@@ -100,7 +112,7 @@ export default function Dashboard({ files, setFiles, setCards, setFlowcharts, se
                                         {files.length > 0 ? <FileText className="text-orange-400" size={32} /> : <Upload className="text-gray-500" size={32} />}
                                     </div>
                                     <h3 className="text-xl font-medium text-white mb-2">
-                                        {files.length > 0 ? `${files.length} Files Selected` : "Upload PDFs"}
+                                        {files.length > 0 ? `${files.length} Files Selected` : "Upload Study Files"}
                                     </h3>
 
                                     {/* Progress Bar */}
@@ -116,12 +128,12 @@ export default function Dashboard({ files, setFiles, setCards, setFlowcharts, se
                                         </div>
                                     ) : (
                                         <p className="text-sm text-gray-500 text-center mb-8 max-w-xs leading-relaxed">
-                                            {files.length > 0 ? "Ready to analyze." : "Drag and drop your PDF files here to begin."}
+                                            {files.length > 0 ? "Ready to analyze." : "Upload PDF, PPT/PPTX, DOC/DOCX, or TXT files."}
                                         </p>
                                     )}
 
                                     <div className="relative w-full">
-                                        <input type="file" multiple accept=".pdf" onChange={handleFileChange} className={`absolute inset-0 w-full h-full opacity-0 z-20 ${files.length > 0 ? 'hidden' : 'cursor-pointer'}`} />
+                                        <input type="file" multiple accept=".pdf,.ppt,.pptx,.doc,.docx,.txt" onChange={handleFileChange} className={`absolute inset-0 w-full h-full opacity-0 z-20 ${files.length > 0 ? 'hidden' : 'cursor-pointer'}`} />
                                         <div className="relative">
                                             {showGuide && (
                                                 <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-full animate-bounce shadow-lg z-30 pointer-events-none whitespace-nowrap">
@@ -148,7 +160,7 @@ export default function Dashboard({ files, setFiles, setCards, setFlowcharts, se
                                     <BookOpen size={32} />
                                 </div>
                                 <h2 className="text-2xl font-bold text-white mb-2">My Decks</h2>
-                                <p className="text-gray-500 mb-6">Review your generated flashcards grouped by topic.</p>
+                                <p className="text-gray-500 mb-6">Review generated flashcards and take an interactive quiz.</p>
                                 <span className="flex items-center gap-2 text-sm font-medium text-white opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
                                     Open Decks <ArrowRight size={16} />
                                 </span>
