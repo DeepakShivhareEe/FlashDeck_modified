@@ -1,168 +1,204 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, FileText, Share2, ZoomIn, ZoomOut, Send, Bot, User as UserIcon, Home } from 'lucide-react'
+import { ArrowLeft, Bot, FileText, Home, Send, Share2, User as UserIcon, ZoomIn, ZoomOut } from 'lucide-react'
 import MermaidEditor from '../components/MermaidEditor'
-import { requestJson } from '../lib/api'
+import DataStateView from '../components/ui/DataStateView'
+import SkeletonBlock from '../components/ui/SkeletonBlock'
+import { useAsyncAction } from '../hooks/useAsyncAction'
+import { askDeckQuestion } from '../services/chatService'
+import { useAppState } from '../state/useAppState'
 
-// We'll rebuild a dedicated Chat pane here for better integration than the Sidebar component
 function ChatPane({ deckId }) {
-    const [messages, setMessages] = useState([
-        { role: 'assistant', content: 'Hello! I can answer questions about your uploaded documents. What would you like to know?' }
-    ])
-    const [input, setInput] = useState("")
-    const [loading, setLoading] = useState(false)
+  const [messages, setMessages] = useState([
+    { role: 'assistant', content: 'Hello! Ask anything about your uploaded files and I will answer from your deck context.' },
+  ])
+  const [input, setInput] = useState('')
 
-    const handleSend = async () => {
-        if (!input.trim() || !deckId) return;
+  const chatAction = useAsyncAction(async (message) => {
+    const response = await askDeckQuestion({ deckId, message })
+    return response?.answer || 'No response generated.'
+  }, {
+    defaultError: 'Unable to send your message',
+    maxRetries: 2,
+  })
 
-        const userMsg = { role: 'user', content: input };
-        setMessages(prev => [...prev, userMsg]);
-        setInput("");
-        setLoading(true);
+  const handleSend = async () => {
+    if (!input.trim() || chatAction.loading) return
 
-        try {
-            const data = await requestJson('/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: userMsg.content, deck_id: deckId })
-            }, 1, 45000)
-            setMessages(prev => [...prev, { role: 'assistant', content: data.answer }]);
-        } catch (e) {
-            setMessages(prev => [...prev, { role: 'assistant', content: `Sorry, I encountered an error: ${e?.message || 'Request failed'}.` }]);
-        } finally {
-            setLoading(false);
-        }
+    if (!deckId) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'No active deck found. Please generate a deck from Dashboard first, then open Knowledge Base.',
+        },
+      ])
+      return
     }
 
-    return (
-        <div className="flex flex-col h-full bg-[#111] border-l border-white/5">
-            <div className="p-4 border-b border-white/5 flex items-center justify-between">
-                <span className="font-medium text-white flex items-center gap-2"><Bot size={16} /> AI Assistant</span>
+    const outgoing = input.trim()
+    setMessages((prev) => [...prev, { role: 'user', content: outgoing }])
+    setInput('')
+
+    try {
+      const answer = await chatAction.execute(outgoing)
+      setMessages((prev) => [...prev, { role: 'assistant', content: answer }])
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: 'I hit an issue processing that request. Please retry.' },
+      ])
+    }
+  }
+
+  return (
+    <div className="flex h-full flex-col border-l border-white/5 bg-[#111]">
+      <div className="border-b border-white/5 p-4">
+        <span className="flex items-center gap-2 font-medium text-white"><Bot size={16} /> AI Assistant</span>
+      </div>
+
+      <div className="flex-1 space-y-3 overflow-y-auto p-4">
+        {messages.map((message, idx) => (
+          <div key={`${message.role}-${idx}`} className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
+            <div className={`grid h-8 w-8 place-items-center rounded-full ${message.role === 'user' ? 'bg-white/10' : 'bg-orange-500/15'}`}>
+              {message.role === 'user' ? <UserIcon size={14} /> : <Bot size={14} className="text-orange-400" />}
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {messages.map((m, i) => (
-                    <div key={i} className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${m.role === 'user' ? 'bg-white/10' : 'bg-orange-500/10'}`}>
-                            {m.role === 'user' ? <UserIcon size={14} /> : <Bot size={14} className="text-orange-500" />}
-                        </div>
-                        <div className={`p-3 rounded-lg text-sm max-w-[85%] leading-relaxed ${m.role === 'user' ? 'bg-[#2a2a2a] text-white' : 'bg-transparent border border-white/10 text-gray-300'}`}>
-                            {m.content}
-                        </div>
-                    </div>
-                ))}
-                {loading && (
-                    <div className="flex gap-2 p-4">
-                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-75"></div>
-                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-150"></div>
-                    </div>
-                )}
+            <div className={`max-w-[85%] rounded-lg p-3 text-sm leading-relaxed ${message.role === 'user' ? 'bg-[#2a2a2a] text-white' : 'border border-white/10 bg-transparent text-gray-300'}`}>
+              {message.content}
             </div>
-            <div className="p-4 border-t border-white/5 bg-[#1a1a1a]">
-                <div className="relative">
-                    <input
-                        type="text"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                        placeholder="Ask about your documents..."
-                        className="w-full bg-[#0a0a0a] border border-white/10 rounded-lg pl-4 pr-10 py-3 text-sm text-white focus:outline-none focus:border-orange-500/50"
-                    />
-                    <button onClick={handleSend} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-orange-400 transition-colors">
-                        <Send size={16} />
-                    </button>
-                </div>
-            </div>
+          </div>
+        ))}
+
+        {chatAction.loading && (
+          <div className="space-y-2">
+            <SkeletonBlock className="h-4 w-4/5" />
+            <SkeletonBlock className="h-4 w-3/5" />
+            <SkeletonBlock className="h-4 w-2/3" />
+          </div>
+        )}
+
+        {chatAction.error && (
+          <DataStateView
+            state="error"
+            title="Message failed"
+            message={chatAction.error}
+            actionLabel="Retry"
+            onAction={async () => {
+              try {
+                const answer = await chatAction.retry()
+                if (answer) {
+                  setMessages((prev) => [...prev, { role: 'assistant', content: answer }])
+                }
+              } catch {
+                // Error state stays visible.
+              }
+            }}
+          />
+        )}
+      </div>
+
+      <div className="border-t border-white/5 bg-[#1a1a1a] p-4">
+        <div className="relative">
+          <input
+            type="text"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') handleSend()
+            }}
+            placeholder={deckId ? 'Ask about your deck' : 'Generate a deck first to enable chat'}
+            disabled={!deckId}
+            className="w-full rounded-lg border border-white/10 bg-[#0a0a0a] py-3 pl-4 pr-10 text-sm text-white focus:border-orange-500/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+          />
+          <button onClick={handleSend} disabled={!deckId} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-orange-400 disabled:cursor-not-allowed disabled:opacity-50">
+            <Send size={16} />
+          </button>
         </div>
-    )
+      </div>
+    </div>
+  )
 }
 
-export default function KnowledgeBase({ files, flowcharts, deckId }) {
-    const [scale, setScale] = useState(1)
-    const [customFlowchart, setCustomFlowchart] = useState(null)
-    const displayedFlowchart = customFlowchart ?? (flowcharts && flowcharts.length > 0 ? flowcharts[0] : null)
+export default function KnowledgeBase() {
+  const {
+    state: { files, flowcharts, deckId },
+  } = useAppState()
 
-    return (
-        <div className="h-screen bg-[#191919] text-gray-200 font-sans flex flex-col overflow-hidden">
-            {/* Header (Minimal) */}
-            <header className="h-14 border-b border-white/5 flex items-center justify-between px-4 bg-[#111]">
-                <div className="flex items-center gap-4">
-                    <Link to="/app" className="p-2 hover:bg-white/5 rounded-md text-gray-400 hover:text-white" title="Back to Dashboard">
-                        <ArrowLeft size={18} />
-                    </Link>
-                    <Link to="/" className="p-2 hover:bg-white/5 rounded-md text-gray-400 hover:text-white" title="Go Home">
-                        <Home size={18} />
-                    </Link>
-                    <h1 className="font-medium text-white text-sm">Knowledge Base</h1>
-                </div>
-                <div className="flex items-center gap-2">
-                    <button className="px-3 py-1.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-medium rounded-md transition-colors">
-                        Share Session
-                    </button>
-                </div>
-            </header>
+  const [scale, setScale] = useState(1)
+  const [customFlowchart, setCustomFlowchart] = useState(null)
 
-            {/* 3 Pane Layout */}
-            <div className="flex-1 flex overflow-hidden">
+  const displayedFlowchart = useMemo(() => {
+    if (customFlowchart) return customFlowchart
+    if (flowcharts && flowcharts.length > 0) return flowcharts[0]
+    return null
+  }, [customFlowchart, flowcharts])
 
-                {/* Left: Files Pane */}
-                <div className="w-64 bg-[#111] border-r border-white/5 flex flex-col">
-                    <div className="p-4 text-xs font-mono text-gray-500 uppercase tracking-widest border-b border-white/5">
-                        Sources
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                        {files && files.map((f, i) => (
-                            <div key={i} className="flex items-center gap-3 p-2 rounded-md hover:bg-white/5 text-gray-400 hover:text-gray-200 cursor-pointer text-sm">
-                                <FileText size={14} />
-                                <span className="truncate">{f.name}</span>
-                            </div>
-                        ))}
-                        {(!files || files.length === 0) && (
-                            <p className="p-4 text-xs text-gray-600 italic">No files loaded.</p>
-                        )}
-                    </div>
-                </div>
-
-                {/* Center: Flowchart Canvas */}
-                <div className="flex-1 bg-[#151515] relative flex flex-col">
-                    <div className="absolute top-4 left-4 z-10 flex gap-2 bg-[#111] border border-white/10 p-1 rounded-lg">
-                        <button onClick={() => setScale(s => Math.min(s + 0.1, 2))} className="p-1.5 hover:bg-white/10 rounded-md text-gray-400">
-                            <ZoomIn size={16} />
-                        </button>
-                        <button onClick={() => setScale(s => Math.max(s - 0.1, 0.5))} className="p-1.5 hover:bg-white/10 rounded-md text-gray-400">
-                            <ZoomOut size={16} />
-                        </button>
-                    </div>
-
-                    <div className="flex-1 overflow-auto flex items-center justify-center p-10 cursor-move">
-                        <div style={{ transform: `scale(${scale})`, transition: 'transform 0.2s' }} className="origin-center">
-                            {displayedFlowchart ? (
-                                <div className="h-full w-full">
-                                    <MermaidEditor
-                                        code={displayedFlowchart}
-                                        readOnly={false}
-                                        onSave={(newCode) => {
-                                            console.log("Saving Flowchart Update:", newCode)
-                                            setCustomFlowchart(newCode)
-                                        }}
-                                    />
-                                </div>
-                            ) : (
-                                <div className="text-gray-600 flex flex-col items-center">
-                                    <Share2 size={48} className="opacity-20 mb-4" />
-                                    <p>No Flowchart Generated</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Right: Chat Pane */}
-                <div className="w-80 md:w-96 h-full">
-                    <ChatPane deckId={deckId} />
-                </div>
-
-            </div>
+  return (
+    <div className="flex h-screen flex-col overflow-hidden bg-[#191919] font-sans text-gray-200">
+      <header className="flex h-14 items-center justify-between border-b border-white/5 bg-[#111] px-4">
+        <div className="flex items-center gap-3">
+          <Link to="/app" className="rounded-md p-2 text-gray-400 hover:bg-white/5 hover:text-white" title="Back">
+            <ArrowLeft size={18} />
+          </Link>
+          <Link to="/" className="rounded-md p-2 text-gray-400 hover:bg-white/5 hover:text-white" title="Home">
+            <Home size={18} />
+          </Link>
+          <h1 className="text-sm font-medium text-white">Knowledge Base</h1>
         </div>
-    )
+        <button className="rounded-md bg-orange-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-orange-500">
+          Share Session
+        </button>
+      </header>
+
+      <div className="flex flex-1 overflow-hidden">
+        <aside className="flex w-64 flex-col border-r border-white/5 bg-[#111]">
+          <div className="border-b border-white/5 p-4 text-xs uppercase tracking-widest text-gray-500">Sources</div>
+          <div className="flex-1 space-y-1 overflow-y-auto p-2">
+            {files && files.length > 0 ? (
+              files.map((file, index) => (
+                <div key={`${file.name}-${index}`} className="flex cursor-pointer items-center gap-3 rounded-md p-2 text-sm text-gray-400 hover:bg-white/5 hover:text-gray-200">
+                  <FileText size={14} />
+                  <span className="truncate">{file.name}</span>
+                </div>
+              ))
+            ) : (
+              <p className="p-4 text-xs italic text-gray-600">No files loaded.</p>
+            )}
+          </div>
+        </aside>
+
+        <main className="relative flex flex-1 flex-col bg-[#151515]">
+          <div className="absolute left-4 top-4 z-10 flex gap-2 rounded-lg border border-white/10 bg-[#111] p-1">
+            <button onClick={() => setScale((prev) => Math.min(prev + 0.1, 2))} className="rounded-md p-1.5 text-gray-400 hover:bg-white/10">
+              <ZoomIn size={16} />
+            </button>
+            <button onClick={() => setScale((prev) => Math.max(prev - 0.1, 0.5))} className="rounded-md p-1.5 text-gray-400 hover:bg-white/10">
+              <ZoomOut size={16} />
+            </button>
+          </div>
+
+          <div className="flex flex-1 items-center justify-center overflow-auto p-10">
+            <div style={{ transform: `scale(${scale})`, transition: 'transform 0.2s' }} className="origin-center">
+              {displayedFlowchart ? (
+                <MermaidEditor
+                  code={displayedFlowchart}
+                  readOnly={false}
+                  onSave={(nextCode) => setCustomFlowchart(nextCode)}
+                />
+              ) : (
+                <div className="flex flex-col items-center text-gray-600">
+                  <Share2 size={48} className="mb-4 opacity-20" />
+                  <p>No flowchart generated for this deck yet.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </main>
+
+        <div className="h-full w-80 md:w-96">
+          <ChatPane deckId={deckId} />
+        </div>
+      </div>
+    </div>
+  )
 }

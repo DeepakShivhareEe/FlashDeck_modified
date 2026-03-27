@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 import { requestJson } from '../lib/api'
+import { useAppState } from '../state/useAppState'
 
 const CACHE_KEY = 'flashdeck_analytics_cache'
 
@@ -9,6 +10,11 @@ export default function AnalyticsPage({ authUser }) {
   const [loading, setLoading] = useState(() => !readCache())
   const [error, setError] = useState('')
   const [data, setData] = useState(() => readCache())
+  const { actions } = useAppState()
+
+  useEffect(() => {
+    actions.setWorkflowStep('analytics')
+  }, [actions])
 
   useEffect(() => {
     if (!authUser) {

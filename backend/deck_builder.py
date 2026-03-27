@@ -1,7 +1,7 @@
 import genanki
 import random
 
-def create_anki_deck(cards_data, deck_name="FlashDeck"):
+def create_anki_deck(cards_data, deck_name="FlashDeck", output_filename="flashdeck_generated.apkg"):
     # 1. Generate Unique ID
     deck_id = random.randrange(1 << 30, 1 << 31)
     
@@ -33,7 +33,6 @@ def create_anki_deck(cards_data, deck_name="FlashDeck"):
         my_deck.add_note(note)
 
     # 5. Save
-    output_filename = "flashdeck_generated.apkg"
     genanki.Package(my_deck).write_to_file(output_filename)
     
     return output_filename

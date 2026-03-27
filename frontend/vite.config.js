@@ -26,6 +26,10 @@ export default defineConfig({
             return 'diagram-vendor'
           }
 
+          if (id.includes('html2canvas') || id.includes('jspdf')) {
+            return 'export-vendor'
+          }
+
           if (id.includes('react') || id.includes('scheduler')) {
             return 'react-vendor'
           }

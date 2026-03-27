@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { getAuthToken, requestJson, setAuthToken } from './lib/api'
+import { AppStateProvider } from './state/AppStateContext'
 import './App.css'
 
 const LandingPage = lazy(() => import('./pages/LandingPage'))
@@ -12,15 +13,9 @@ const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'))
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'))
 const ReviewPage = lazy(() => import('./pages/ReviewPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const QuizResultsPage = lazy(() => import('./pages/QuizResultsPage'))
 
 function App() {
-  // Global State lifted from Dashboard
-  const [files, setFiles] = useState([])
-  const [cards, setCards] = useState([])
-  const [quiz, setQuiz] = useState([])
-  const [flowcharts, setFlowcharts] = useState([])
-  const [deckName, setDeckName] = useState("")
-  const [deckId, setDeckId] = useState(null)
   const [authUser, setAuthUser] = useState(null)
   const [authChecked, setAuthChecked] = useState(() => !getAuthToken())
 
@@ -57,83 +52,63 @@ function App() {
   }
 
   return (
-    <Router>
-      <Suspense fallback={<div className="min-h-screen bg-[#191919] text-white grid place-items-center">Loading...</div>}>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
+    <AppStateProvider>
+      <Router>
+        <Suspense fallback={<div className="min-h-screen bg-[#191919] text-white grid place-items-center">Loading...</div>}>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
 
-          <Route
-            path="/auth"
-            element={<AuthPage authUser={authUser} setAuthUser={setAuthUser} />}
-          />
+            <Route
+              path="/auth"
+              element={<AuthPage authUser={authUser} setAuthUser={setAuthUser} />}
+            />
 
-          <Route
-            path="/app"
-            element={
-              <Dashboard
-                files={files}
-                setFiles={setFiles}
-                setCards={setCards}
-                setQuiz={setQuiz}
-                setFlowcharts={setFlowcharts}
-                setDeckName={setDeckName}
-                setDeckId={setDeckId}
-                deckId={deckId}
-                authUser={authUser}
-              />
-            }
-          />
+            <Route
+              path="/app"
+              element={<Dashboard authUser={authUser} />}
+            />
 
-          <Route
-            path="/my-decks"
-            element={
-              <MyDecks
-                cards={cards}
-                quiz={quiz}
-                deckName={deckName}
-                deckId={deckId}
-                authUser={authUser}
-              />
-            }
-          />
+            <Route
+              path="/my-decks"
+              element={<MyDecks authUser={authUser} />}
+            />
 
-          <Route
-            path="/knowledge-base"
-            element={
-              <KnowledgeBase
-                files={files}
-                flowcharts={flowcharts}
-                deckId={deckId}
-                authUser={authUser}
-              />
-            }
-          />
+            <Route
+              path="/knowledge-base"
+              element={<KnowledgeBase />}
+            />
 
-          <Route
-            path="/analytics"
-            element={<AnalyticsPage authUser={authUser} />}
-          />
+            <Route
+              path="/analytics"
+              element={<AnalyticsPage authUser={authUser} />}
+            />
 
-          <Route
-            path="/leaderboard"
-            element={<LeaderboardPage authUser={authUser} />}
-          />
+            <Route
+              path="/quiz-results"
+              element={<QuizResultsPage />}
+            />
 
-          <Route
-            path="/review"
-            element={<ReviewPage authUser={authUser} />}
-          />
+            <Route
+              path="/leaderboard"
+              element={<LeaderboardPage authUser={authUser} />}
+            />
 
-          <Route
-            path="/profile"
-            element={<ProfilePage authContext={authContext} />}
-          />
+            <Route
+              path="/review"
+              element={<ReviewPage authUser={authUser} />}
+            />
 
-          {/* Redirect unknown routes */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
-    </Router>
+            <Route
+              path="/profile"
+              element={<ProfilePage authContext={authContext} />}
+            />
+
+            {/* Redirect unknown routes */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
+      </Router>
+    </AppStateProvider>
   )
 }
 

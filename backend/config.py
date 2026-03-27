@@ -2,13 +2,21 @@ import os
 from typing import List
 
 
+DEFAULT_CORS_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+
 def parse_cors_origins(raw_value: str | None) -> List[str]:
     """Parse comma-separated CORS origins from env into a clean list."""
     if not raw_value:
-        return ["http://localhost:5173", "http://127.0.0.1:5173"]
+        return DEFAULT_CORS_ORIGINS.copy()
 
     origins = [item.strip() for item in raw_value.split(",") if item.strip()]
-    return origins or ["http://localhost:5173", "http://127.0.0.1:5173"]
+    return origins or DEFAULT_CORS_ORIGINS.copy()
 
 
 def sanitize_chat_message(message: str, max_chars: int = 4000) -> str:

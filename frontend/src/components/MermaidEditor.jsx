@@ -3,9 +3,32 @@ import mermaid from 'mermaid'
 import { Edit2, Save } from 'lucide-react'
 import html2canvas from 'html2canvas'
 
+function normalizeMermaidCode(input) {
+    let code = String(input || '').replace(/\r/g, '').trim()
+    code = code.replace(/^```(?:mermaid)?\s*/i, '').replace(/\s*```$/i, '').trim()
+    code = code.replace(/<\/?p>/gi, ' ')
+    code = code.replace(/<br\s*\/?>/gi, ' ')
+    code = code.replace(/\n{3,}/g, '\n\n')
+
+    // Replace empty labels like A[] with visible placeholders.
+    let step = 1
+    code = code.replace(/\b([A-Za-z0-9_]+)\[\s*\]/g, (_, node) => {
+        const label = `Step ${step}`
+        step += 1
+        return `${node}[${label}]`
+    })
+
+    const hasSupportedHeader = /^(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|erDiagram|journey|gantt|pie|mindmap|timeline|gitGraph)\b/i.test(code)
+    if (!hasSupportedHeader) {
+        return 'graph TD\n    A[Flowchart unavailable] --> B[Please regenerate or edit diagram]'
+    }
+    return code
+}
+
 function injectSafeSvg(container, svgMarkup) {
     const parser = new DOMParser()
-    const svgDoc = parser.parseFromString(svgMarkup, 'image/svg+xml')
+    const cleanedSvg = String(svgMarkup || '').replace(/<br>/gi, '<br/>')
+    const svgDoc = parser.parseFromString(cleanedSvg, 'image/svg+xml')
     const svgElement = svgDoc.documentElement
 
     if (!svgElement || svgElement.nodeName.toLowerCase() === 'parsererror') {
@@ -33,13 +56,17 @@ export default function MermaidEditor({ code, onSave, readOnly = false }) {
                 startOnLoad: false,
                 theme: 'dark',
                 securityLevel: 'strict',
+                flowchart: {
+                    htmlLabels: false,
+                },
             })
-            const { svg } = await mermaid.render('mermaid-svg-' + Math.random().toString(36).substr(2, 9), currentCode)
+            const safeCode = normalizeMermaidCode(currentCode)
+            const { svg } = await mermaid.render('mermaid-svg-' + Math.random().toString(36).substr(2, 9), safeCode)
             injectSafeSvg(graphRef.current, svg)
             setError(null)
         } catch (e) {
             console.error("Mermaid Error:", e)
-            setError("Invalid Mermaid Syntax")
+            setError("Flowchart render failed. Please edit or regenerate the diagram.")
             // Make sure the error doesn't break the UI permanently
             // Mermaid often leaves the DOM in a bad state on error
         }
