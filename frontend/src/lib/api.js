@@ -1,4 +1,9 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8001').replace(/\/$/, '')
+const DEFAULT_API_BASE_URL =
+  typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.hostname}:8000`
+    : 'http://127.0.0.1:8000'
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/$/, '')
 const AUTH_TOKEN_KEY = 'flashdeck_auth_token'
 const DEBUG_API = import.meta.env.DEV || String(import.meta.env.VITE_DEBUG_API || '').toLowerCase() === 'true'
 
